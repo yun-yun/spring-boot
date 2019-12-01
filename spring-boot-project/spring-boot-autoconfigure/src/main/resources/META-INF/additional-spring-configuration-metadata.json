@@ -700,12 +700,6 @@
       "defaultValue": ".mustache"
     },
     {
-      "name": "spring.mvc.favicon.enabled",
-      "type": "java.lang.Boolean",
-      "description": "Whether to enable resolution of favicon.ico.",
-      "defaultValue": true
-    },
-    {
       "name": "spring.mvc.formcontent.putfilter.enabled",
       "type": "java.lang.Boolean",
       "description": "Whether to enable Spring's HttpPutFormContentFilter.",
@@ -725,7 +719,7 @@
       "name": "spring.mvc.hiddenmethod.filter.enabled",
       "type": "java.lang.Boolean",
       "description": "Whether to enable Spring's HiddenHttpMethodFilter.",
-      "defaultValue": true
+      "defaultValue": false
     },
     {
       "name" : "spring.mvc.media-types",
@@ -748,6 +742,13 @@
         "replacement" : "spring.resources.chain.compressed",
         "level" : "error"
       }
+    },
+    {
+      "name": "spring.quartz.jdbc.comment-prefix",
+      "defaultValue": [
+        "#",
+        "--"
+      ]
     },
     {
       "name": "spring.quartz.jdbc.initialize-schema",
@@ -1054,7 +1055,7 @@
       "description": "Check the change log location exists.",
       "defaultValue": true,
       "deprecation": {
-        "reason": "Liquibase has it's own check that checks if the change log location exists making this property redundant.",
+        "reason": "Liquibase has its own check that checks if the change log location exists making this property redundant.",
         "level": "error"
       }
     },
@@ -2095,7 +2096,7 @@
       "name": "spring.webflux.hiddenmethod.filter.enabled",
       "type": "java.lang.Boolean",
       "description": "Whether to enable Spring's HiddenHttpMethodFilter.",
-      "defaultValue": true
+      "defaultValue": false
     }
   ],
   "hints": [
@@ -2166,6 +2167,28 @@
         },
         {
           "value": "}"
+        }
+      ]
+    },
+    {
+      "name": "server.tomcat.accesslog.encoding",
+      "providers": [
+        {
+          "name": "handle-as",
+          "parameters": {
+            "target": "java.nio.charset.Charset"
+          }
+        }
+      ]
+    },
+    {
+      "name": "server.tomcat.accesslog.locale",
+      "providers": [
+        {
+          "name": "handle-as",
+          "parameters": {
+            "target": "java.util.Locale"
+          }
         }
       ]
     },

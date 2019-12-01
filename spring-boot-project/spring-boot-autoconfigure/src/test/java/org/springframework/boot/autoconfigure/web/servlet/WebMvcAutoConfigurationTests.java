@@ -196,7 +196,7 @@ class WebMvcAutoConfigurationTests {
 	@Test
 	void resourceHandlerMappingDisabled() {
 		this.contextRunner.withPropertyValues("spring.resources.add-mappings:false")
-				.run((context) -> assertThat(getResourceMappingLocations(context)).hasSize(1));
+				.run((context) -> assertThat(getResourceMappingLocations(context)).hasSize(0));
 	}
 
 	@Test
@@ -376,18 +376,6 @@ class WebMvcAutoConfigurationTests {
 		this.contextRunner.withUserConfiguration(CustomContentNegotiatingViewResolver.class)
 				.run((context) -> assertThat(context).getBeanNames(ContentNegotiatingViewResolver.class)
 						.containsOnly("myViewResolver"));
-	}
-
-	@Test
-	void faviconMapping() {
-		this.contextRunner
-				.run((context) -> assertThat(getResourceMappingLocations(context).get("/favicon.ico")).hasSize(1));
-	}
-
-	@Test
-	void faviconMappingDisabled() {
-		this.contextRunner.withPropertyValues("spring.mvc.favicon.enabled:false")
-				.run((context) -> assertThat(getResourceMappingLocations(context).get("/favicon.ico")).isNull());
 	}
 
 	@Test
@@ -576,13 +564,29 @@ class WebMvcAutoConfigurationTests {
 	}
 
 	@Test
-	void validatorWithConfigurerShouldUseSpringValidator() {
+	void validatorWithConfigurerAloneShouldUseSpringValidator() {
 		this.contextRunner.withUserConfiguration(MvcValidator.class).run((context) -> {
 			assertThat(context).doesNotHaveBean(ValidatorFactory.class);
 			assertThat(context).doesNotHaveBean(javax.validation.Validator.class);
 			assertThat(context).getBeanNames(Validator.class).containsOnly("mvcValidator");
-			assertThat(context.getBean("mvcValidator")).isSameAs(context.getBean(MvcValidator.class).validator);
+			Validator expectedValidator = context.getBean(MvcValidator.class).validator;
+			assertThat(context.getBean("mvcValidator")).isSameAs(expectedValidator);
+			assertThat(context.getBean(RequestMappingHandlerAdapter.class).getWebBindingInitializer())
+					.hasFieldOrPropertyWithValue("validator", expectedValidator);
 		});
+	}
+
+	@Test
+	void validatorWithConfigurerShouldUseSpringValidator() {
+		this.contextRunner.withConfiguration(AutoConfigurations.of(ValidationAutoConfiguration.class))
+				.withUserConfiguration(MvcValidator.class).run((context) -> {
+					assertThat(context).getBeanNames(javax.validation.Validator.class).containsOnly("defaultValidator");
+					assertThat(context).getBeanNames(Validator.class).containsOnly("defaultValidator", "mvcValidator");
+					Validator expectedValidator = context.getBean(MvcValidator.class).validator;
+					assertThat(context.getBean("mvcValidator")).isSameAs(expectedValidator);
+					assertThat(context.getBean(RequestMappingHandlerAdapter.class).getWebBindingInitializer())
+							.hasFieldOrPropertyWithValue("validator", expectedValidator);
+				});
 	}
 
 	@Test
@@ -657,14 +661,12 @@ class WebMvcAutoConfigurationTests {
 
 	private void assertCachePeriod(AssertableWebApplicationContext context) {
 		Map<String, Object> handlerMap = getHandlerMap(context.getBean("resourceHandlerMapping", HandlerMapping.class));
-		assertThat(handlerMap).hasSize(3);
+		assertThat(handlerMap).hasSize(2);
 		for (Entry<String, Object> entry : handlerMap.entrySet()) {
-			if (!entry.getKey().equals("/favicon.ico")) {
-				Object handler = entry.getValue();
-				if (handler instanceof ResourceHttpRequestHandler) {
-					assertThat(((ResourceHttpRequestHandler) handler).getCacheSeconds()).isEqualTo(5);
-					assertThat(((ResourceHttpRequestHandler) handler).getCacheControl()).isNull();
-				}
+			Object handler = entry.getValue();
+			if (handler instanceof ResourceHttpRequestHandler) {
+				assertThat(((ResourceHttpRequestHandler) handler).getCacheSeconds()).isEqualTo(5);
+				assertThat(((ResourceHttpRequestHandler) handler).getCacheControl()).isNull();
 			}
 		}
 	}
@@ -781,7 +783,7 @@ class WebMvcAutoConfigurationTests {
 
 	private void assertCacheControl(AssertableWebApplicationContext context) {
 		Map<String, Object> handlerMap = getHandlerMap(context.getBean("resourceHandlerMapping", HandlerMapping.class));
-		assertThat(handlerMap).hasSize(3);
+		assertThat(handlerMap).hasSize(2);
 		for (Object handler : handlerMap.keySet()) {
 			if (handler instanceof ResourceHttpRequestHandler) {
 				assertThat(((ResourceHttpRequestHandler) handler).getCacheSeconds()).isEqualTo(-1);
@@ -792,7 +794,12 @@ class WebMvcAutoConfigurationTests {
 	}
 
 	protected Map<String, List<Resource>> getResourceMappingLocations(ApplicationContext context) {
-		return getMappingLocations(context.getBean("resourceHandlerMapping", HandlerMapping.class));
+		Object bean = context.getBean("resourceHandlerMapping");
+		if (bean instanceof HandlerMapping) {
+			return getMappingLocations(context.getBean("resourceHandlerMapping", HandlerMapping.class));
+		}
+		assertThat(bean.toString()).isEqualTo("null");
+		return Collections.emptyMap();
 	}
 
 	protected List<ResourceResolver> getResourceResolvers(ApplicationContext context, String mapping) {
@@ -912,7 +919,6 @@ class WebMvcAutoConfigurationTests {
 		@Bean
 		ConfigurableWebBindingInitializer customConfigurableWebBindingInitializer() {
 			return new CustomWebBindingInitializer();
-
 		}
 
 	}

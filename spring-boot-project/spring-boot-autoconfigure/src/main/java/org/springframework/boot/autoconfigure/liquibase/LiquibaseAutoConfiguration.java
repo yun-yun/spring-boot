@@ -38,6 +38,9 @@ import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.boot.autoconfigure.jdbc.JdbcOperationsDependsOnPostProcessor;
 import org.springframework.boot.autoconfigure.jdbc.NamedParameterJdbcOperationsDependsOnPostProcessor;
 import org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration.LiquibaseDataSourceCondition;
+import org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration.LiquibaseEntityManagerFactoryDependsOnPostProcessor;
+import org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration.LiquibaseJdbcOperationsDependsOnPostProcessor;
+import org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration.LiquibaseNamedParameterJdbcOperationsDependsOnPostProcessor;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.jdbc.DataSourceBuilder;
@@ -45,7 +48,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.core.io.ResourceLoader;
 import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.springframework.orm.jpa.AbstractEntityManagerFactoryBean;
@@ -69,6 +71,9 @@ import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 @ConditionalOnProperty(prefix = "spring.liquibase", name = "enabled", matchIfMissing = true)
 @Conditional(LiquibaseDataSourceCondition.class)
 @AutoConfigureAfter({ DataSourceAutoConfiguration.class, HibernateJpaAutoConfiguration.class })
+@Import({ LiquibaseEntityManagerFactoryDependsOnPostProcessor.class,
+		LiquibaseJdbcOperationsDependsOnPostProcessor.class,
+		LiquibaseNamedParameterJdbcOperationsDependsOnPostProcessor.class })
 public class LiquibaseAutoConfiguration {
 
 	@Bean
@@ -80,16 +85,12 @@ public class LiquibaseAutoConfiguration {
 	@Configuration(proxyBeanMethods = false)
 	@ConditionalOnMissingBean(SpringLiquibase.class)
 	@EnableConfigurationProperties({ DataSourceProperties.class, LiquibaseProperties.class })
-	@Import(LiquibaseJpaDependencyConfiguration.class)
 	public static class LiquibaseConfiguration {
 
 		private final LiquibaseProperties properties;
 
-		private final ResourceLoader resourceLoader;
-
-		public LiquibaseConfiguration(LiquibaseProperties properties, ResourceLoader resourceLoader) {
+		public LiquibaseConfiguration(LiquibaseProperties properties) {
 			this.properties = properties;
-			this.resourceLoader = resourceLoader;
 		}
 
 		@Bean
@@ -152,16 +153,16 @@ public class LiquibaseAutoConfiguration {
 	}
 
 	/**
-	 * Additional configuration to ensure that {@link EntityManagerFactory} beans depend
-	 * on the liquibase bean.
+	 * Post processor to ensure that {@link EntityManagerFactory} beans depend on the
+	 * liquibase bean.
 	 */
-	@Configuration(proxyBeanMethods = false)
 	@ConditionalOnClass(LocalContainerEntityManagerFactoryBean.class)
 	@ConditionalOnBean(AbstractEntityManagerFactoryBean.class)
-	protected static class LiquibaseJpaDependencyConfiguration extends EntityManagerFactoryDependsOnPostProcessor {
+	static class LiquibaseEntityManagerFactoryDependsOnPostProcessor
+			extends EntityManagerFactoryDependsOnPostProcessor {
 
-		public LiquibaseJpaDependencyConfiguration() {
-			super("liquibase");
+		LiquibaseEntityManagerFactoryDependsOnPostProcessor() {
+			super(SpringLiquibase.class);
 		}
 
 	}
@@ -170,29 +171,27 @@ public class LiquibaseAutoConfiguration {
 	 * Additional configuration to ensure that {@link JdbcOperations} beans depend on the
 	 * liquibase bean.
 	 */
-	@Configuration(proxyBeanMethods = false)
 	@ConditionalOnClass(JdbcOperations.class)
 	@ConditionalOnBean(JdbcOperations.class)
-	protected static class LiquibaseJdbcOperationsDependencyConfiguration extends JdbcOperationsDependsOnPostProcessor {
+	static class LiquibaseJdbcOperationsDependsOnPostProcessor extends JdbcOperationsDependsOnPostProcessor {
 
-		public LiquibaseJdbcOperationsDependencyConfiguration() {
-			super("liquibase");
+		LiquibaseJdbcOperationsDependsOnPostProcessor() {
+			super(SpringLiquibase.class);
 		}
 
 	}
 
 	/**
-	 * Additional configuration to ensure that {@link NamedParameterJdbcOperations} beans
-	 * depend on the liquibase bean.
+	 * Post processor to ensure that {@link NamedParameterJdbcOperations} beans depend on
+	 * the liquibase bean.
 	 */
-	@Configuration(proxyBeanMethods = false)
 	@ConditionalOnClass(NamedParameterJdbcOperations.class)
 	@ConditionalOnBean(NamedParameterJdbcOperations.class)
-	protected static class LiquibaseNamedParameterJdbcOperationsDependencyConfiguration
+	static class LiquibaseNamedParameterJdbcOperationsDependsOnPostProcessor
 			extends NamedParameterJdbcOperationsDependsOnPostProcessor {
 
-		public LiquibaseNamedParameterJdbcOperationsDependencyConfiguration() {
-			super("liquibase");
+		LiquibaseNamedParameterJdbcOperationsDependsOnPostProcessor() {
+			super(SpringLiquibase.class);
 		}
 
 	}

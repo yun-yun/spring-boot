@@ -17,14 +17,19 @@
 package org.springframework.boot.actuate.endpoint.invoker.cache;
 
 import java.security.Principal;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import org.springframework.boot.actuate.endpoint.InvocationContext;
 import org.springframework.boot.actuate.endpoint.SecurityContext;
+import org.springframework.boot.actuate.endpoint.http.ApiVersion;
+import org.springframework.boot.actuate.endpoint.invoke.MissingParametersException;
 import org.springframework.boot.actuate.endpoint.invoke.OperationInvoker;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,6 +44,8 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
  * Tests for {@link CachingOperationInvoker}.
  *
  * @author Stephane Nicoll
+ * @author Christoph Dreis
+ * @author Phillip Webb
  */
 class CachingOperationInvokerTests {
 
@@ -60,6 +67,30 @@ class CachingOperationInvokerTests {
 		parameters.put("first", null);
 		parameters.put("second", null);
 		assertCacheIsUsed(parameters);
+	}
+
+	@Test
+	void cacheInTtlWithMonoResponse() {
+		MonoOperationInvoker.invocations = 0;
+		MonoOperationInvoker target = new MonoOperationInvoker();
+		InvocationContext context = new InvocationContext(mock(SecurityContext.class), Collections.emptyMap());
+		CachingOperationInvoker invoker = new CachingOperationInvoker(target, 500L);
+		Object response = ((Mono<?>) invoker.invoke(context)).block();
+		Object cachedResponse = ((Mono<?>) invoker.invoke(context)).block();
+		assertThat(MonoOperationInvoker.invocations).isEqualTo(1);
+		assertThat(response).isSameAs(cachedResponse);
+	}
+
+	@Test
+	void cacheInTtlWithFluxResponse() {
+		FluxOperationInvoker.invocations = 0;
+		FluxOperationInvoker target = new FluxOperationInvoker();
+		InvocationContext context = new InvocationContext(mock(SecurityContext.class), Collections.emptyMap());
+		CachingOperationInvoker invoker = new CachingOperationInvoker(target, 500L);
+		Object response = ((Flux<?>) invoker.invoke(context)).blockLast();
+		Object cachedResponse = ((Flux<?>) invoker.invoke(context)).blockLast();
+		assertThat(FluxOperationInvoker.invocations).isEqualTo(1);
+		assertThat(response).isSameAs(cachedResponse);
 	}
 
 	private void assertCacheIsUsed(Map<String, Object> parameters) {
@@ -120,6 +151,54 @@ class CachingOperationInvokerTests {
 		}
 		invoker.invoke(context);
 		verify(target, times(2)).invoke(context);
+	}
+
+	@Test
+	void targetInvokedWithDifferentApiVersion() {
+		OperationInvoker target = mock(OperationInvoker.class);
+		Object expectedV2 = new Object();
+		Object expectedV3 = new Object();
+		InvocationContext contextV2 = new InvocationContext(ApiVersion.V2, mock(SecurityContext.class),
+				Collections.emptyMap());
+		InvocationContext contextV3 = new InvocationContext(ApiVersion.V3, mock(SecurityContext.class),
+				Collections.emptyMap());
+		given(target.invoke(contextV2)).willReturn(expectedV2);
+		given(target.invoke(contextV3)).willReturn(expectedV3);
+		CachingOperationInvoker invoker = new CachingOperationInvoker(target, 500L);
+		Object response = invoker.invoke(contextV2);
+		assertThat(response).isSameAs(expectedV2);
+		verify(target, times(1)).invoke(contextV2);
+		Object cachedResponse = invoker.invoke(contextV3);
+		assertThat(cachedResponse).isNotSameAs(response);
+		verify(target, times(1)).invoke(contextV3);
+	}
+
+	private static class MonoOperationInvoker implements OperationInvoker {
+
+		static int invocations;
+
+		@Override
+		public Object invoke(InvocationContext context) throws MissingParametersException {
+			return Mono.fromCallable(() -> {
+				invocations++;
+				return Mono.just("test");
+			});
+		}
+
+	}
+
+	private static class FluxOperationInvoker implements OperationInvoker {
+
+		static int invocations;
+
+		@Override
+		public Object invoke(InvocationContext context) throws MissingParametersException {
+			return Flux.fromIterable(() -> {
+				invocations++;
+				return Arrays.asList("spring", "boot").iterator();
+			});
+		}
+
 	}
 
 }

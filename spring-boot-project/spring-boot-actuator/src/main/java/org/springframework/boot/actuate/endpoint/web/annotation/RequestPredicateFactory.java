@@ -65,8 +65,7 @@ class RequestPredicateFactory {
 
 	private Parameter getAllRemainingPathSegmentsParameter(Parameter[] selectorParameters) {
 		Parameter trailingPathsParameter = null;
-		for (int i = 0; i < selectorParameters.length; i++) {
-			Parameter selectorParameter = selectorParameters[i];
+		for (Parameter selectorParameter : selectorParameters) {
 			Selector selector = selectorParameter.getAnnotation(Selector.class);
 			if (selector.match() == Match.ALL_REMAINING) {
 				Assert.state(trailingPathsParameter == null,
@@ -124,9 +123,7 @@ class RequestPredicateFactory {
 		}
 		if (WebEndpointResponse.class.isAssignableFrom(method.getReturnType())) {
 			ResolvableType returnType = ResolvableType.forMethodReturnType(method);
-			if (ResolvableType.forClass(Resource.class).isAssignableFrom(returnType.getGeneric(0))) {
-				return true;
-			}
+			return ResolvableType.forClass(Resource.class).isAssignableFrom(returnType.getGeneric(0));
 		}
 		return false;
 	}

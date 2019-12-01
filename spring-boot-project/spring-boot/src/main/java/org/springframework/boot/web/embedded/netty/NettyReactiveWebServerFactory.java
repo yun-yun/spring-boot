@@ -100,7 +100,7 @@ public class NettyReactiveWebServerFactory extends AbstractReactiveWebServerFact
 	}
 
 	/**
-	 * Add {@link NettyRouteProvider}s that should be applied, in order, before the the
+	 * Add {@link NettyRouteProvider}s that should be applied, in order, before the
 	 * handler for the Spring application.
 	 * @param routeProviders the route providers to add
 	 */
@@ -161,13 +161,8 @@ public class NettyReactiveWebServerFactory extends AbstractReactiveWebServerFact
 	}
 
 	private HttpProtocol[] listProtocols() {
-		if (getHttp2() != null && getHttp2().isEnabled()) {
-			if (getSsl() != null && getSsl().isEnabled()) {
-				return new HttpProtocol[] { HttpProtocol.H2, HttpProtocol.HTTP11 };
-			}
-			else {
-				return new HttpProtocol[] { HttpProtocol.H2C, HttpProtocol.HTTP11 };
-			}
+		if (getHttp2() != null && getHttp2().isEnabled() && getSsl() != null && getSsl().isEnabled()) {
+			return new HttpProtocol[] { HttpProtocol.H2, HttpProtocol.HTTP11 };
 		}
 		return new HttpProtocol[] { HttpProtocol.HTTP11 };
 	}

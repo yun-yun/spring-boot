@@ -137,7 +137,7 @@ public class JettyServletWebServerFactory extends AbstractServletWebServerFactor
 	@Override
 	public WebServer getWebServer(ServletContextInitializer... initializers) {
 		JettyEmbeddedWebAppContext context = new JettyEmbeddedWebAppContext();
-		int port = (getPort() >= 0) ? getPort() : 0;
+		int port = Math.max(getPort(), 0);
 		InetSocketAddress address = new InetSocketAddress(getAddress(), port);
 		Server server = createServer(address);
 		configureWebAppContext(context, initializers);
@@ -342,8 +342,8 @@ public class JettyServletWebServerFactory extends AbstractServletWebServerFactor
 
 			@Override
 			public void configure(WebAppContext context) throws Exception {
-				ErrorHandler errorHandler = context.getErrorHandler();
-				context.setErrorHandler(new JettyEmbeddedErrorHandler(errorHandler));
+				JettyEmbeddedErrorHandler errorHandler = new JettyEmbeddedErrorHandler();
+				context.setErrorHandler(errorHandler);
 				addJettyErrorPages(errorHandler, getErrorPages());
 			}
 

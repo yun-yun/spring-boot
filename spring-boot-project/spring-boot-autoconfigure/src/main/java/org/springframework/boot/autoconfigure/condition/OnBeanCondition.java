@@ -376,9 +376,7 @@ class OnBeanCondition extends FilteringSpringBootCondition implements Configurat
 			return result;
 		}
 		result = (result != null) ? result : new LinkedHashSet<>();
-		for (String addition : additional) {
-			result.add(addition);
-		}
+		Collections.addAll(result, additional);
 		return result;
 	}
 
@@ -454,9 +452,7 @@ class OnBeanCondition extends FilteringSpringBootCondition implements Configurat
 		}
 
 		private void merge(Set<String> result, String... additional) {
-			for (String addition : additional) {
-				result.add(addition);
-			}
+			Collections.addAll(result, additional);
 		}
 
 		private Set<Class<?>> resolveWhenPossible(Set<String> classNames) {
@@ -602,17 +598,19 @@ class OnBeanCondition extends FilteringSpringBootCondition implements Configurat
 			if (hasNames) {
 				string.append("names: ");
 				string.append(StringUtils.collectionToCommaDelimitedString(this.names));
-				string.append(hasTypes ? "" : "; ");
+				string.append(hasTypes ? " " : "; ");
 			}
 			if (hasTypes) {
 				string.append("types: ");
 				string.append(StringUtils.collectionToCommaDelimitedString(this.types));
+				string.append(hasIgnoredTypes ? " " : "; ");
 			}
 			if (hasIgnoredTypes) {
 				string.append("ignored: ");
 				string.append(StringUtils.collectionToCommaDelimitedString(this.ignoredTypes));
+				string.append("; ");
 			}
-			string.append("; SearchStrategy: ");
+			string.append("SearchStrategy: ");
 			string.append(this.strategy.toString().toLowerCase(Locale.ENGLISH));
 			string.append(")");
 			return string.toString();

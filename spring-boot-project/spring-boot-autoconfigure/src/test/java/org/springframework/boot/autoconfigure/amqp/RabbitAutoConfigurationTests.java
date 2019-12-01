@@ -80,6 +80,8 @@ import static org.mockito.Mockito.verify;
  * @author Greg Turnquist
  * @author Stephane Nicoll
  * @author Gary Russell
+ * @author HaiTao Zhang
+ * @author Franjo Zilic
  */
 class RabbitAutoConfigurationTests {
 
@@ -98,6 +100,8 @@ class RabbitAutoConfigurationTests {
 			assertThat(messagingTemplate.getRabbitTemplate()).isEqualTo(rabbitTemplate);
 			assertThat(amqpAdmin).isNotNull();
 			assertThat(connectionFactory.getHost()).isEqualTo("localhost");
+			assertThat(getTargetConnectionFactory(context).getRequestedChannelMax())
+					.isEqualTo(com.rabbitmq.client.ConnectionFactory.DEFAULT_CHANNEL_MAX);
 			assertThat(connectionFactory.isPublisherConfirms()).isFalse();
 			assertThat(connectionFactory.isPublisherReturns()).isFalse();
 			assertThat(context.containsBean("rabbitListenerContainerFactory"))
@@ -198,13 +202,42 @@ class RabbitAutoConfigurationTests {
 	}
 
 	@Test
-	void testConnectionFactoryPublisherSettings() {
+	@Deprecated
+	void testConnectionFactoryPublisherConfirmTypeUsingDeprecatedProperty() {
 		this.contextRunner.withUserConfiguration(TestConfiguration.class)
-				.withPropertyValues("spring.rabbitmq.publisher-confirms=true", "spring.rabbitmq.publisher-returns=true")
-				.run((context) -> {
+				.withPropertyValues("spring.rabbitmq.publisher-confirms=true").run((context) -> {
+					CachingConnectionFactory connectionFactory = context.getBean(CachingConnectionFactory.class);
+					assertThat(connectionFactory.isPublisherConfirms()).isTrue();
+					assertThat(connectionFactory.isSimplePublisherConfirms()).isFalse();
+				});
+	}
+
+	@Test
+	void testConnectionFactoryPublisherConfirmTypeCorrelated() {
+		this.contextRunner.withUserConfiguration(TestConfiguration.class)
+				.withPropertyValues("spring.rabbitmq.publisher-confirm-type=correlated").run((context) -> {
+					CachingConnectionFactory connectionFactory = context.getBean(CachingConnectionFactory.class);
+					assertThat(connectionFactory.isPublisherConfirms()).isTrue();
+					assertThat(connectionFactory.isSimplePublisherConfirms()).isFalse();
+				});
+	}
+
+	@Test
+	void testConnectionFactoryPublisherConfirmTypeSimple() {
+		this.contextRunner.withUserConfiguration(TestConfiguration.class)
+				.withPropertyValues("spring.rabbitmq.publisher-confirm-type=simple").run((context) -> {
+					CachingConnectionFactory connectionFactory = context.getBean(CachingConnectionFactory.class);
+					assertThat(connectionFactory.isPublisherConfirms()).isFalse();
+					assertThat(connectionFactory.isSimplePublisherConfirms()).isTrue();
+				});
+	}
+
+	@Test
+	void testConnectionFactoryPublisherReturns() {
+		this.contextRunner.withUserConfiguration(TestConfiguration.class)
+				.withPropertyValues("spring.rabbitmq.publisher-returns=true").run((context) -> {
 					CachingConnectionFactory connectionFactory = context.getBean(CachingConnectionFactory.class);
 					RabbitTemplate rabbitTemplate = context.getBean(RabbitTemplate.class);
-					assertThat(connectionFactory.isPublisherConfirms()).isTrue();
 					assertThat(connectionFactory.isPublisherReturns()).isTrue();
 					assertThat(getMandatory(rabbitTemplate)).isTrue();
 				});
@@ -471,7 +504,7 @@ class RabbitAutoConfigurationTests {
 			RetryPolicy retryPolicy) {
 		Advice[] adviceChain = rabbitListenerContainerFactory.getAdviceChain();
 		assertThat(adviceChain).isNotNull();
-		assertThat(adviceChain.length).isEqualTo(1);
+		assertThat(adviceChain).hasSize(1);
 		Advice advice = adviceChain[0];
 		RetryTemplate retryTemplate = (RetryTemplate) ReflectionTestUtils.getField(advice, "retryOperations");
 		assertThat(retryTemplate).hasFieldOrPropertyWithValue("retryPolicy", retryPolicy);
@@ -533,7 +566,7 @@ class RabbitAutoConfigurationTests {
 		assertThat(containerFactory).hasFieldOrPropertyWithValue("idleEventInterval", 5L);
 		Advice[] adviceChain = containerFactory.getAdviceChain();
 		assertThat(adviceChain).isNotNull();
-		assertThat(adviceChain.length).isEqualTo(1);
+		assertThat(adviceChain).hasSize(1);
 		Advice advice = adviceChain[0];
 		MessageRecoverer messageRecoverer = context.getBean("myMessageRecoverer", MessageRecoverer.class);
 		MethodInvocationRecoverer<?> mir = (MethodInvocationRecoverer<?>) ReflectionTestUtils.getField(advice,
@@ -567,6 +600,15 @@ class RabbitAutoConfigurationTests {
 				.withPropertyValues("spring.rabbitmq.requestedHeartbeat:20").run((context) -> {
 					com.rabbitmq.client.ConnectionFactory rabbitConnectionFactory = getTargetConnectionFactory(context);
 					assertThat(rabbitConnectionFactory.getRequestedHeartbeat()).isEqualTo(20);
+				});
+	}
+
+	@Test
+	void customizeRequestedChannelMax() {
+		this.contextRunner.withUserConfiguration(TestConfiguration.class)
+				.withPropertyValues("spring.rabbitmq.requestedChannelMax:12").run((context) -> {
+					com.rabbitmq.client.ConnectionFactory rabbitConnectionFactory = getTargetConnectionFactory(context);
+					assertThat(rabbitConnectionFactory.getRequestedChannelMax()).isEqualTo(12);
 				});
 	}
 
